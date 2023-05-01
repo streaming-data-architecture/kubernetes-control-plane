@@ -1,0 +1,87 @@
+version: '3'
+services:
+  etcd:
+    image: quay.io/coreos/etcd:latest
+    command: etcd --listen-client-urls http://0.0.0.0:2379 --advertise-client-urls http://etcd:2379
+    volumes:
+      - etcd-data:/etcd-data
+    ports:
+      - "2379:2379"
+
+  kube-apiserver:
+    image: k8s.gcr.io/kube-apiserver:v1.22.0
+    command: kube-apiserver --advertise-address=0.0.0.0 --etcd-servers=http://etcd:2379 --service-cluster-ip-range=10.0.0.0/24 --authorization-mode=Node,RBAC --allow-privileged=true
+    ports:
+      - "6443:6443"
+    depends_on:
+      - etcd
+
+  kube-controller-manager:
+    image: k8s.gcr.io/kube-controller-manager:v1.22.0
+    command: kube-controller-manager --kubeconfig=/etc/kubernetes/controller-manager.conf --allocate-node-cidrs=true --service-cluster-ip-range=10.0.0.0/24 --cluster-cidr=10.10.0.0/16 --node-cidr-mask-size=24 --leader-elect=true
+    volumes:
+      - ./controller-manager.conf:/etc/kubernetes/controller-manager.conf
+    depends_on:
+      - kube-apiserver
+
+  kube-scheduler:
+    image: k8s.gcr.io/kube-scheduler:v1.22.0
+    command: kube-scheduler --kubeconfig=/etc/kubernetes/scheduler.conf --leader-elect=true
+    volumes:
+      - ./scheduler.conf:/etc/kubernetes/scheduler.conf
+    depends_on:
+      - kube-apiserver
+
+  dashboard:
+    image: kubernetesui/dashboard:v2.4.0
+    ports:
+      - "8001:8080"
+    depends_on:
+      - kube-apiserver
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - kube-apiserver
+
+  worker-node1:
+    image: k8s.gcr.io/kube-proxy:v1.22.0
+    privileged: true
+    volumes:
+      - /lib/modules:/lib/modules:ro
+    command:
+      - kube-proxy
+      - --config=/var/lib/kube-proxy/kubeconfig.yaml
+    depends_on:
+      - kube-apiserver
+    networks:
+      kubernetes:
+        ipv4_address: 10.0.0.2
+
+  worker-node2:
+    image: k8s.gcr.io/kube-proxy:v1.22.0
+    privileged: true
+    volumes:
+      - /lib/modules:/lib/modules:ro
+    command:
+      - kube-proxy
+      - --config=/var/lib/kube-proxy/kubeconfig.yaml
+    depends_on:
+      - kube-apiserver
+    networks:
+      kubernetes:
+        ipv4_address: 10.0.0.3
+
+networks:
+  kubernetes:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.0.0.0/16
+
+volumes:
+  etcd-data:
+    driver: local
