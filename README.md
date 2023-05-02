@@ -8,6 +8,10 @@ chmod +x ./kind
 sudo mv ./kind /usr/local/bin/kind
 ```
 
-`kind create cluster`
-
 `kind get clusters`
+
+`kind create cluster --name mf-cluster`
+
+`kind delete  cluster --name mf-cluster`
+
+`kind create cluster --name mf --config kind-ha-config.yaml`
