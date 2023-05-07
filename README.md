@@ -1,3 +1,10 @@
+## Run
+
+`kubectl apply -f deployment.yaml`
+
+`kubectl apply -f service.yaml`
+
+
 ## Installation (Linux)
 
 Follow from official guide or,
